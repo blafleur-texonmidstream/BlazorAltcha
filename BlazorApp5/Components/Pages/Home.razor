@@ -1,0 +1,116 @@
+﻿@page "/"
+@using System.ComponentModel.DataAnnotations
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+Welcome to your new app.
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Contact Form with Altcha</h3>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@formModel" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <InputText id="name" class="form-control" @bind-Value="formModel.Name" />
+                            <ValidationMessage For="@(() => formModel.Name)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <InputText id="email" class="form-control" @bind-Value="formModel.Email" />
+                            <ValidationMessage For="@(() => formModel.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Message</label>
+                            <InputTextArea id="message" class="form-control" @bind-Value="formModel.Message" rows="4" />
+                            <ValidationMessage For="@(() => formModel.Message)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <!-- Altcha widget -->
+                            <altcha-widget 
+                                id="altcha-widget" 
+                                class="w-100" 
+                                data-callback="altchaVerified" 
+                                data-name="altcha-token"
+                                data-auto="onsubmit"
+                                data-test="false"
+                                challengeurl="/api/altcha/challenge"
+                                verifyurl="/api/altcha/verify">
+                            </altcha-widget>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </EditForm>
+
+                    @if (!string.IsNullOrEmpty(submitMessage))
+                    {
+                        <div class="alert alert-info mt-3">
+                            @submitMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private FormModel formModel = new();
+    private string submitMessage = string.Empty;
+    
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            // Get the Altcha token from the widget
+            var token = await JSRuntime.InvokeAsync<string>("getAltchaToken");
+            
+            if (string.IsNullOrEmpty(token))
+            {
+                submitMessage = "Please complete the CAPTCHA verification";
+                return;
+            }
+            
+            // Form submission logic would go here
+            // In a real app, you would validate the token on the server
+            
+            submitMessage = $"Thank you, {formModel.Name}! Your message has been submitted.";
+            formModel = new FormModel(); // Reset form
+            
+            // Reset the Altcha widget for next submission
+            await JSRuntime.InvokeAsync<object>("resetAltcha");
+        }
+        catch (Exception ex)
+        {
+            submitMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    public class FormModel
+    {
+        [Required]
+        [StringLength(100, ErrorMessage = "Name is too long.")]
+        public string Name { get; set; } = string.Empty;
+        
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+        
+        [Required]
+        [StringLength(1000, ErrorMessage = "Message is too long.")]
+        public string Message { get; set; } = string.Empty;
+    }
+}
