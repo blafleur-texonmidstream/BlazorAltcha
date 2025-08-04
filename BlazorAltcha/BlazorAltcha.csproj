@@ -7,4 +7,11 @@
         <RootNamespace>BlazorAltcha</RootNamespace>
     </PropertyGroup>
 
+    <ItemGroup>
+      <Content Update="Components\AltchaWidget.js">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </Content>
+    </ItemGroup>
+
 </Project>

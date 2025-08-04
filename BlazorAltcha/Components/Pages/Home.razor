@@ -39,17 +39,17 @@ Welcome to your new app.
                         </div>
 
                         <div class="mb-3">
-                            <!-- Altcha widget -->
-                            <altcha-widget 
-                                id="altcha-widget" 
-                                class="w-100" 
-                                data-callback="altchaVerified" 
-                                data-name="altcha-token"
-                                data-auto="onsubmit"
-                                data-test="false"
-                                challengeurl="/api/altcha/challenge"
-                                verifyurl="/api/altcha/verify">
-                            </altcha-widget>
+                            <!-- Blazor Altcha Widget -->
+                            <AltchaWidget 
+                                @ref="altchaWidget"
+                                Id="altcha-widget" 
+                                CssClass="w-100" 
+                                Name="altcha-token"
+                                @bind-Value="altchaToken"
+                                ChallengeUrl="/api/altcha/challenge"
+                                VerifyUrl="/api/altcha/verify"
+                                Test="false"
+                                OnVerified="AltchaVerified" />
                         </div>
 
                         <button type="submit" class="btn btn-primary">Submit</button>
@@ -70,15 +70,20 @@ Welcome to your new app.
 @code {
     private FormModel formModel = new();
     private string submitMessage = string.Empty;
+    private string altchaToken = string.Empty;
+    private AltchaWidget? altchaWidget;
+    
+    private void AltchaVerified(string token)
+    {
+        altchaToken = token;
+        // You can add additional logic here when the token is verified
+    }
     
     private async Task HandleValidSubmit()
     {
         try
         {
-            // Get the Altcha token from the widget
-            var token = await JSRuntime.InvokeAsync<string>("getAltchaToken");
-            
-            if (string.IsNullOrEmpty(token))
+            if (string.IsNullOrEmpty(altchaToken))
             {
                 submitMessage = "Please complete the CAPTCHA verification";
                 return;
@@ -91,7 +96,10 @@ Welcome to your new app.
             formModel = new FormModel(); // Reset form
             
             // Reset the Altcha widget for next submission
-            await JSRuntime.InvokeAsync<object>("resetAltcha");
+            if (altchaWidget != null)
+            {
+                await altchaWidget.ResetAsync();
+            }
         }
         catch (Exception ex)
         {
