@@ -1,8 +1,6 @@
 # Build results
 [Dd]ebug/
-[Dd]ebugPublic/
 [Rr]elease/
-[Rr]eleases/
 x64/
 x86/
 [Ww][Ii][Nn]32/
@@ -10,12 +8,11 @@ x86/
 [Aa][Rr][Mm]64/
 bld/
 [Bb]in/
-**/[Bb]in/[Dd]ebug/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
 
-# Visual Studio and Visual Studio Code files
+# Visual Studio files
 .vs/
 .vscode/
 *.user
@@ -27,42 +24,23 @@ bld/
 *.jfm
 *.pfx
 *.publishsettings
-.editorconfig
+orleans.codegen.cs
 
 # Rider files
 .idea/
-**/.idea/
 *.sln.iml
 *.DotSettings.user
 
 # NuGet Packages
 *.nupkg
-# NuGet Symbol Packages
 *.snupkg
-# The packages folder can be ignored because of Package Restore
 **/[Pp]ackages/*
-# except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
-
-# MSTest test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
 
 # .NET Core
 project.lock.json
 project.fragment.lock.json
 artifacts/
-
-# ASP.NET Scaffolding
-ScaffoldingReadMe.txt
-
-# Node.js
-node_modules/
-npm-debug.log
-
-# Static assets generated during build
-**/wwwroot/dist/
-**/ClientApp/dist/
 
 # macOS specific files
 .DS_Store
