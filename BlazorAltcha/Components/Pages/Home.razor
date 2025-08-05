@@ -48,9 +48,18 @@ Welcome to your new app.
                                 @bind-Value="altchaToken"
                                 ChallengeUrl="/api/altcha/challenge"
                                 VerifyUrl="/api/altcha/verify"
-                                Test="false"
+                                Test="true"
                                 OnVerified="AltchaVerified" />
                         </div>
+
+                        @if (callbackExecuted)
+                        {
+                            <div class="alert alert-success mb-3">
+                                <strong>Callback executed!</strong> AltchaVerified was called at: @callbackTime
+                                <br />
+                                Token (first 20 chars): @(altchaToken?.Length > 20 ? altchaToken.Substring(0, 20) + "..." : altchaToken)
+                            </div>
+                        }
 
                         <button type="submit" class="btn btn-primary">Submit</button>
                     </EditForm>
@@ -72,11 +81,19 @@ Welcome to your new app.
     private string submitMessage = string.Empty;
     private string altchaToken = string.Empty;
     private AltchaWidget? altchaWidget;
+    private bool callbackExecuted = false;
+    private string callbackTime = string.Empty;
     
     private void AltchaVerified(string token)
     {
+        Console.WriteLine($"AltchaVerified callback executed with token: {token?.Substring(0, Math.Min(20, token?.Length ?? 0))}...");
+        
         altchaToken = token;
-        // You can add additional logic here when the token is verified
+        callbackExecuted = true;
+        callbackTime = DateTime.Now.ToString("HH:mm:ss.fff");
+        
+        // Force UI update
+        StateHasChanged();
     }
     
     private async Task HandleValidSubmit()

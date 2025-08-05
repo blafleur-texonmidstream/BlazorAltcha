@@ -1,89 +1,117 @@
 @using Microsoft.JSInterop
-@using System.Linq.Expressions
-@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
 
-<div class="altcha-container">
-    <input type="hidden" @ref="hiddenInput" value="@Value" name="@Name" />
-    
-    <div @ref="altchaElement" class="@CssClass" 
-         id="@Id" 
-         data-callback="@CallbackName" 
-         data-test="@Test.ToString().ToLower()" 
-         data-auto="@Auto">
-    </div>
-    
-    @if (ValidationFor != null)
-    {
-        <ValidationMessage For="@ValidationFor" />
-    }
-</div>
+<div @ref="altchaElement" class="altcha-placeholder @CssClass" id="@Id"></div>
+<input @ref="hiddenInput" type="hidden" name="@Name" value="@Value" />
 
 @code {
-    [Parameter] public string Id { get; set; } = "altcha-widget";
-    [Parameter] public string CssClass { get; set; } = "w-100";
-    [Parameter] public string Name { get; set; } = "altcha-token";
-    [Parameter] public string Value { get; set; } = "";
-    [Parameter] public EventCallback<string> ValueChanged { get; set; }
-    [Parameter] public string CallbackName { get; set; } = "altchaVerified";
-    [Parameter] public string Auto { get; set; } = "onsubmit";
-    [Parameter] public bool Test { get; set; } = false;
-    [Parameter] public string ChallengeUrl { get; set; } = "/api/altcha/challenge";
-    [Parameter] public string VerifyUrl { get; set; } = "/api/altcha/verify";
-    [Parameter] public EventCallback<string> OnVerified { get; set; }
-    [Parameter] public Expression<Func<string>> ValidationFor { get; set; }
+    [Parameter]
+    public string Id { get; set; } = "altcha_" + Guid.NewGuid().ToString("N");
+    
+    [Parameter]
+    public string CssClass { get; set; }
+    
+    [Parameter]
+    public string ChallengeUrl { get; set; }
+    
+    [Parameter]
+    public string VerifyUrl { get; set; }
+    
+    [Parameter]
+    public string Name { get; set; } = "altcha";
+    
+    [Parameter]
+    public bool Test { get; set; } = false;
+    
+    [Parameter]
+    public string Value { get; set; }
+    
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+    
+    [Parameter]
+    public EventCallback<string> OnVerified { get; set; }
+    
+    public string CallbackName { get; private set; } = "altchaVerificationCallback_" + Guid.NewGuid().ToString("N");
     
     private ElementReference altchaElement;
     private ElementReference hiddenInput;
-    private IJSObjectReference? module;
-    private DotNetObjectReference<AltchaWidget>? objRef;
+    private DotNetObjectReference<AltchaWidget> objRef;
+    private IJSObjectReference module;
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            module = await JSRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./Components/AltchaWidget.razor.js");
-                
+            Console.WriteLine("AltchaWidget first render");
+            
+            // Load the non-module script
+            await JSRuntime.InvokeVoidAsync("eval", "if (!window.altchaScriptsLoaded) { window.altchaScriptsLoaded = true; var script = document.createElement('script'); script.src = '/js/altcha-functions.js'; document.head.appendChild(script); }");
+            
+            // Wait a moment for the script to load
+            await Task.Delay(300);
+            
+            // For debugging purposes
+            Console.WriteLine($"Initializing ALTCHA with ChallengeUrl: {ChallengeUrl}, VerifyUrl: {VerifyUrl}, CallbackName: {CallbackName}");
+            
             objRef = DotNetObjectReference.Create(this);
             
-            await module.InvokeVoidAsync("initAltcha", 
-                objRef, 
-                altchaElement, 
-                hiddenInput,
-                ChallengeUrl,
-                VerifyUrl,
-                CallbackName,
-                Test);
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("initAltcha", 
+                    objRef, 
+                    altchaElement, 
+                    hiddenInput,
+                    ChallengeUrl,
+                    VerifyUrl,
+                    CallbackName,
+                    Test);
+                
+                Console.WriteLine("JavaScript initAltcha function called successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing ALTCHA: {ex.Message}");
+            }
         }
     }
     
     [JSInvokable]
     public async Task OnAltchaVerified(string token)
     {
+        Console.WriteLine($"OnAltchaVerified called with token: {token?.Substring(0, Math.Min(20, token?.Length ?? 0))}...");
+        
+        // Set the Value property
         Value = token;
+        
+        // Trigger the ValueChanged event
         await ValueChanged.InvokeAsync(token);
+        
+        // Trigger the OnVerified event
         await OnVerified.InvokeAsync(token);
+        
+        // Ensure UI updates
+        StateHasChanged();
+        
+        Console.WriteLine("OnAltchaVerified completed");
     }
     
     public async Task ResetAsync()
     {
-        if (module != null)
+        try
         {
-            await module.InvokeVoidAsync("resetAltcha", altchaElement);
-            Value = "";
+            await JSRuntime.InvokeVoidAsync("resetAltcha", altchaElement);
+            Console.WriteLine("ALTCHA widget reset");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error resetting ALTCHA: {ex.Message}");
         }
     }
     
-    public async ValueTask DisposeAsync()
+    public void Dispose()
     {
-        if (module != null)
-        {
-            await module.DisposeAsync();
-        }
-        
         objRef?.Dispose();
+        module?.DisposeAsync();
     }
-    
-    [Inject]
-    private IJSRuntime JSRuntime { get; set; } = default!;
 }

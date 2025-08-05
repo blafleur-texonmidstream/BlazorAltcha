@@ -1,5 +1,8 @@
+using System;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using BlazorAltcha.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BlazorAltcha.Controllers;
@@ -39,8 +42,13 @@ public class AltchaController : ControllerBase
         try
         {
             // Parse the payload (which contains the solution)
-            var payloadData = System.Text.Json.JsonSerializer.Deserialize<AltchaPayload>(
-                Encoding.UTF8.GetString(Convert.FromBase64String(request.Payload)));
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            
+            var payloadData = JsonSerializer.Deserialize<AltchaPayload>(
+                Encoding.UTF8.GetString(Convert.FromBase64String(request.Payload)), jsonOptions);
                 
             if (payloadData == null)
             {
@@ -91,21 +99,4 @@ public class AltchaController : ControllerBase
         }
         return builder.ToString();
     }
-}
-
-public class AltchaVerifyRequest
-{
-    public string Payload { get; set; } = string.Empty;
-    public string Code { get; set; } = string.Empty;
-}
-
-public class AltchaPayload
-{
-    public string Algorithm { get; set; } = string.Empty;
-    public string Challenge { get; set; } = string.Empty;
-    public int Number { get; set; }
-    public string Salt { get; set; } = string.Empty;
-    public string Signature { get; set; } = string.Empty;
-    public int Took { get; set; }
-    public bool? Test { get; set; }
 }

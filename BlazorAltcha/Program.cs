@@ -1,6 +1,7 @@
 
 
 using BlazorAltcha.Components;
+using Microsoft.AspNetCore.Builder;
 
 var builder = WebApplication.CreateBuilder(args);
 

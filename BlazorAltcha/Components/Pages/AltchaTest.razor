@@ -1,0 +1,104 @@
+@page "/altcha-test"
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+
+<h1>ALTCHA Test Page</h1>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Testing ALTCHA Callback</h3>
+                </div>
+                <div class="card-body">
+                    <p>This page tests the ALTCHA widget and callback functionality.</p>
+                    
+                    <div class="mb-3">
+                        <AltchaWidget 
+                            @ref="altchaWidget"
+                            Id="altcha-test-widget" 
+                            CssClass="w-100" 
+                            Name="altcha-token"
+                            @bind-Value="altchaToken"
+                            ChallengeUrl="/api/altcha/challenge"
+                            VerifyUrl="/api/altcha/verify"
+                            Test="true"
+                            OnVerified="AltchaVerified" />
+                    </div>
+
+                    @if (callbackExecuted)
+                    {
+                        <div class="alert alert-success mb-3">
+                            <strong>Callback executed!</strong> AltchaVerified was called at: @callbackTime
+                            <br />
+                            Token (first 20 chars): @(altchaToken?.Length > 20 ? altchaToken.Substring(0, 20) + "..." : altchaToken)
+                        </div>
+                    }
+
+                    <button @onclick="TestDirectCallback" class="btn btn-primary">Test Direct Callback</button>
+                    <button @onclick="ResetWidget" class="btn btn-secondary ms-2">Reset Widget</button>
+
+                    @if (!string.IsNullOrEmpty(statusMessage))
+                    {
+                        <div class="alert alert-info mt-3">
+                            @statusMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string altchaToken = string.Empty;
+    private AltchaWidget? altchaWidget;
+    private bool callbackExecuted = false;
+    private string callbackTime = string.Empty;
+    private string statusMessage = string.Empty;
+    
+    private void AltchaVerified(string token)
+    {
+        Console.WriteLine($"AltchaVerified callback executed with token: {token?.Substring(0, Math.Min(20, token?.Length ?? 0))}...");
+        
+        altchaToken = token;
+        callbackExecuted = true;
+        callbackTime = DateTime.Now.ToString("HH:mm:ss.fff");
+        statusMessage = "AltchaVerified callback successfully executed!";
+        
+        // Force UI update
+        StateHasChanged();
+    }
+    
+    private async Task TestDirectCallback()
+    {
+        try
+        {
+            statusMessage = "Testing direct callback...";
+            StateHasChanged();
+            
+            // Use JSRuntime to directly call the callback function with a test token
+            await JSRuntime.InvokeVoidAsync("eval", 
+                $"if (window.{altchaWidget?.CallbackName}) {{ window.{altchaWidget?.CallbackName}('test-token-12345'); }}");
+            
+            statusMessage = "Direct callback test completed. Check if the callback executed.";
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error testing direct callback: {ex.Message}";
+        }
+    }
+    
+    private async Task ResetWidget()
+    {
+        if (altchaWidget != null)
+        {
+            await altchaWidget.ResetAsync();
+            callbackExecuted = false;
+            altchaToken = string.Empty;
+            statusMessage = "Widget has been reset.";
+            StateHasChanged();
+        }
+    }
+}
