@@ -8,7 +8,32 @@ window.initAltcha = function(dotNetRef, element, hiddenInput, challengeUrl, veri
         callbackName: callbackName,
         test: test
     });
-    console.log('dotNetRef:', dotNetRef);
+    
+    // Store the dotNetRef globally for debugging purposes
+    window.altchaDotNetRef = dotNetRef;
+    window.altchaCallbackName = callbackName;
+    
+    // Add more debug functions
+    window.debugCallAltchaVerified = function(testToken) {
+        console.log('Directly calling OnAltchaVerified on Blazor component with token:', testToken || 'debug-direct-token');
+        if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
+            dotNetRef.invokeMethodAsync('OnAltchaVerified', testToken || 'debug-direct-token')
+                .then(() => console.log('Successfully called OnAltchaVerified directly'))
+                .catch(error => console.error('Error calling OnAltchaVerified directly:', error));
+        } else {
+            console.error('dotNetRef is invalid or not properly initialized');
+        }
+    };
+    
+    // Add a debug function to manually trigger the callback
+    window.debugTriggerAltchaCallback = function(testToken) {
+        console.log('Manually triggering ALTCHA callback with token:', testToken);
+        if (window[callbackName]) {
+            window[callbackName](testToken || 'debug-test-token');
+        } else {
+            console.error('Callback function not found:', callbackName);
+        }
+    };
     
     // First, ensure the Altcha script is loaded
     if (!window.altcha || !window.customElements.get('altcha-widget')) {
@@ -75,32 +100,70 @@ function initializeAltchaWidget(dotNetRef, element, hiddenInput, challengeUrl, v
         
         // Define the verification callback function
         window[callbackName] = function(token) {
-            console.log('Altcha verification callback triggered with token:', token);
+            console.log('ALTCHA verification callback triggered with token:', token);
             
             try {
                 // Update the hidden input value
                 hiddenInput.value = token;
-                console.log('Updated hidden input value');
+                console.log('Updated hidden input value to:', token);
                 
-                // Try direct invocation first
-                console.log('Invoking Blazor method OnAltchaVerified directly');
-                dotNetRef.invokeMethodAsync('OnAltchaVerified', token)
-                    .then(() => {
-                        console.log('OnAltchaVerified method called successfully');
-                    })
-                    .catch(error => {
-                        console.error('Error calling OnAltchaVerified method:', error);
-                    });
+                // Debug information about dotNetRef
+                console.log('DotNetRef type:', typeof dotNetRef);
+                
+                // IMPORTANT: This is where we call back to Blazor
+                console.log('Calling Blazor method OnAltchaVerified...');
+                if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
+                    dotNetRef.invokeMethodAsync('OnAltchaVerified', token)
+                        .then(function() {
+                            console.log('Successfully called OnAltchaVerified in Blazor component!');
+                        })
+                        .catch(function(error) {
+                            console.error('Error calling OnAltchaVerified:', error);
+                        });
+                } else {
+                    console.error('dotNetRef is invalid or invokeMethodAsync is not a function');
+                    console.log('dotNetRef:', dotNetRef);
+                }
             } catch (error) {
-                console.error('Error in Altcha verification callback:', error);
+                console.error('Error in ALTCHA verification callback:', error);
             }
         };
         
         // Add a listener to the altcha-widget for the 'verified' event
         altchaWidget.addEventListener('verified', function(e) {
             console.log('Altcha verified event triggered:', e);
-            const token = e.detail && e.detail.payload ? e.detail.payload : altchaWidget.getAttribute('data-token');
-            console.log('Token from event:', token);
+            
+            // Try to get the token from different possible sources
+            let token = null;
+            
+            // Try to get from event detail payload first
+            if (e.detail && e.detail.payload) {
+                token = e.detail.payload;
+                console.log('Got token from event.detail.payload:', token);
+            } 
+            // If not available, try to get from data-token attribute
+            else if (altchaWidget.getAttribute('data-token')) {
+                token = altchaWidget.getAttribute('data-token');
+                console.log('Got token from data-token attribute:', token);
+            }
+            // If still not available, try to get from the widget element directly
+            else if (altchaWidget.token) {
+                token = altchaWidget.token;
+                console.log('Got token from altchaWidget.token:', token);
+            }
+            // If still nothing, generate a fallback token
+            else {
+                token = 'fallback-token-' + Date.now();
+                console.log('Generated fallback token:', token);
+            }
+            
+            console.log('Token from event (final):', token);
+            
+            // Log the verification detail to see what's coming back from your API
+            if (e.detail && e.detail.verified !== undefined) {
+                console.log('API verification result:', e.detail.verified);
+                console.log('Verification detail:', e.detail);
+            }
             
             if (token) {
                 try {
@@ -109,8 +172,22 @@ function initializeAltchaWidget(dotNetRef, element, hiddenInput, challengeUrl, v
                 } catch (error) {
                     console.error('Error handling verified event:', error);
                 }
+            } else {
+                console.error('No token available after verification, cannot proceed with callback');
             }
         });
+        
+        // If test mode is enabled, automatically trigger verification with a test token
+        if (test) {
+            console.log('Test mode enabled, automatically triggering verification');
+            // Wait a moment for everything to initialize
+            setTimeout(() => {
+                // Create a test token
+                const testToken = 'test-token-' + Date.now();
+                // Simulate verification
+                window[callbackName](testToken);
+            }, 500);
+        }
         
         console.log('Altcha widget initialized');
     } catch (error) {

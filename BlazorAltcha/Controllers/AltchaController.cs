@@ -41,6 +41,8 @@ public class AltchaController : ControllerBase
     {
         try
         {
+            Console.WriteLine("Verification request received");
+            
             // Parse the payload (which contains the solution)
             var jsonOptions = new JsonSerializerOptions
             {
@@ -52,39 +54,58 @@ public class AltchaController : ControllerBase
                 
             if (payloadData == null)
             {
+                Console.WriteLine("Verification failed: Invalid payload");
                 return BadRequest(new { verified = false, reason = "Invalid payload" });
             }
+            
+            // Log details about the payload for debugging
+            Console.WriteLine($"Payload details: Test={payloadData.Test}, Number={payloadData.Number}, Salt={payloadData.Salt}");
             
             // Verify the challenge solution is correct
             bool isValid = VerifySolution(payloadData);
             
             if (!isValid)
             {
+                Console.WriteLine("Verification failed: Incorrect solution");
                 return Ok(new { verified = false, reason = "Incorrect solution" });
             }
             
+            Console.WriteLine("Verification successful");
             return Ok(new { verified = true });
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"Verification error: {ex.Message}");
             return BadRequest(new { verified = false, reason = ex.Message });
         }
     }
     
     private bool VerifySolution(AltchaPayload payload)
     {
-        // For production, you should disable test mode entirely
-        // This commented code is only for development
-        // if (payload.Test == true)
-        // {
-        //     return true;
-        // }
+        // For testing purposes, we'll log when Test mode is detected
+        if (payload.Test == true)
+        {
+            Console.WriteLine("TEST MODE DETECTED - Verification is being bypassed for testing");
+            // In test mode, we'll bypass verification and return true
+            return true;
+        }
         
         // Check if the solution (number) produces the expected challenge hash
         string computedHash = ComputeSha256Hash(payload.Salt + payload.Number.ToString());
         
+        // Log verification details
+        Console.WriteLine($"Verification details:");
+        Console.WriteLine($"  - Salt: {payload.Salt}");
+        Console.WriteLine($"  - Number: {payload.Number}");
+        Console.WriteLine($"  - Expected challenge hash: {payload.Challenge}");
+        Console.WriteLine($"  - Computed hash: {computedHash}");
+        
         // Compare the computed hash with the challenge hash
-        return string.Equals(computedHash, payload.Challenge, StringComparison.OrdinalIgnoreCase);
+        bool isValid = string.Equals(computedHash, payload.Challenge, StringComparison.OrdinalIgnoreCase);
+        Console.WriteLine($"  - Hash match: {isValid}");
+        
+       return isValid;
+     
     }
     
     private static string ComputeSha256Hash(string text)

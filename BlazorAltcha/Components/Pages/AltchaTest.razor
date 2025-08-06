@@ -14,6 +14,13 @@
                 <div class="card-body">
                     <p>This page tests the ALTCHA widget and callback functionality.</p>
                     
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="testModeCheckbox" @bind="useTestMode" />
+                        <label class="form-check-label" for="testModeCheckbox">
+                            Enable Test Mode
+                        </label>
+                    </div>
+                    
                     <div class="mb-3">
                         <AltchaWidget 
                             @ref="altchaWidget"
@@ -23,7 +30,7 @@
                             @bind-Value="altchaToken"
                             ChallengeUrl="/api/altcha/challenge"
                             VerifyUrl="/api/altcha/verify"
-                            Test="true"
+                            Test="@useTestMode"
                             OnVerified="AltchaVerified" />
                     </div>
 
@@ -35,16 +42,58 @@
                             Token (first 20 chars): @(altchaToken?.Length > 20 ? altchaToken.Substring(0, 20) + "..." : altchaToken)
                         </div>
                     }
+                    
+                    <form @onsubmit="SubmitForm" class="mb-3">
+                        <div class="mb-3">
+                            <label for="testInput" class="form-label">Test Input</label>
+                            <input type="text" class="form-control" id="testInput" @bind="testInput" placeholder="Enter test value" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Form</button>
+                    </form>
 
                     <button @onclick="TestDirectCallback" class="btn btn-primary">Test Direct Callback</button>
                     <button @onclick="ResetWidget" class="btn btn-secondary ms-2">Reset Widget</button>
 
+                    <div class="mb-3">
+                        <button @onclick="ManuallyTriggerCallback" class="btn btn-warning">Manually Trigger Callback</button>
+                    </div>
+
                     @if (!string.IsNullOrEmpty(statusMessage))
                     {
-                        <div class="alert alert-info mt-3">
+                        <div class="alert @(isError ? "alert-danger" : "alert-info") mt-3">
                             @statusMessage
                         </div>
                     }
+                    
+                    @if (formSubmitted)
+                    {
+                        <div class="alert alert-success mt-3">
+                            <strong>Form submitted!</strong> This means the ALTCHA verification passed.
+                            <br />
+                            Test input: @testInput
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Verification Results</h3>
+                </div>
+                <div class="card-body">
+                    <h4>Console Output</h4>
+                    <p>Check your browser console and server logs for detailed verification information.</p>
+                    
+                    <h4>Test Instructions</h4>
+                    <ol>
+                        <li>Toggle "Enable Test Mode" to test with and without test mode.</li>
+                        <li>When test mode is disabled, the verification will check if the solution is correct.</li>
+                        <li>Fill in the form and submit to test if the form submission is allowed (which means verification passed).</li>
+                        <li>Use "Test Direct Callback" to manually trigger the callback.</li>
+                        <li>Use "Reset Widget" to reset the ALTCHA widget and try again.</li>
+                    </ol>
                 </div>
             </div>
         </div>
@@ -57,18 +106,29 @@
     private bool callbackExecuted = false;
     private string callbackTime = string.Empty;
     private string statusMessage = string.Empty;
+    private bool isError = false;
+    private bool useTestMode = false;
+    private string testInput = string.Empty;
+    private bool formSubmitted = false;
     
     private void AltchaVerified(string token)
     {
         Console.WriteLine($"AltchaVerified callback executed with token: {token?.Substring(0, Math.Min(20, token?.Length ?? 0))}...");
         
-        altchaToken = token;
+        // Explicitly set the token with the value received
+        this.altchaToken = token;
+        Console.WriteLine($"Set altchaToken to: {altchaToken?.Substring(0, Math.Min(20, altchaToken?.Length ?? 0))}...");
+        
         callbackExecuted = true;
         callbackTime = DateTime.Now.ToString("HH:mm:ss.fff");
         statusMessage = "AltchaVerified callback successfully executed!";
+        isError = false;
         
         // Force UI update
         StateHasChanged();
+        
+        // Log to confirm the token value after StateHasChanged
+        Console.WriteLine($"After StateHasChanged, altchaToken is: {altchaToken?.Substring(0, Math.Min(20, altchaToken?.Length ?? 0))}...");
     }
     
     private async Task TestDirectCallback()
@@ -76,6 +136,7 @@
         try
         {
             statusMessage = "Testing direct callback...";
+            isError = false;
             StateHasChanged();
             
             // Use JSRuntime to directly call the callback function with a test token
@@ -87,6 +148,7 @@
         catch (Exception ex)
         {
             statusMessage = $"Error testing direct callback: {ex.Message}";
+            isError = true;
         }
     }
     
@@ -97,8 +159,61 @@
             await altchaWidget.ResetAsync();
             callbackExecuted = false;
             altchaToken = string.Empty;
+            formSubmitted = false;
             statusMessage = "Widget has been reset.";
+            isError = false;
             StateHasChanged();
         }
+    }
+    
+    private void SubmitForm()
+    {
+        // Log the current state of variables for debugging
+        Console.WriteLine($"SubmitForm called with: useTestMode={useTestMode}, altchaToken={altchaToken?.Length > 0}, testInput={!string.IsNullOrEmpty(testInput)}");
+        
+        // Check if test input is empty
+        if (string.IsNullOrWhiteSpace(testInput))
+        {
+            statusMessage = "Please enter a value in the test input field.";
+            isError = true;
+            return;
+        }
+        
+        // If test mode is enabled, allow submission regardless of token
+        if (useTestMode)
+        {
+            formSubmitted = true;
+            statusMessage = "Form submitted successfully in TEST MODE!";
+            isError = false;
+            return;
+        }
+        
+        // For non-test mode, verify that the token exists
+        if (string.IsNullOrEmpty(altchaToken))
+        {
+            Console.WriteLine("Token is empty or null, showing error message");
+            statusMessage = "Cannot submit form: ALTCHA verification has not been completed.";
+            isError = true;
+            return;
+        }
+        
+        // Log the token if it exists
+        Console.WriteLine($"Token exists, length: {altchaToken.Length}, first 20 chars: {altchaToken.Substring(0, Math.Min(20, altchaToken.Length))}");
+        
+        formSubmitted = true;
+        statusMessage = "Form submitted successfully! This means the ALTCHA verification passed.";
+        isError = false;
+    }
+
+    private void ManuallyTriggerCallback()
+    {
+        // This method can be used to manually trigger the callback for testing
+        Console.WriteLine("ManuallyTriggerCallback called");
+
+        // Simulate a token for testing
+        string testToken = "manual-token-12345";
+
+        // Call the AltchaVerified method directly
+        AltchaVerified(testToken);
     }
 }
