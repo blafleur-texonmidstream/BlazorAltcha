@@ -1,2 +1,2 @@
 # BlazorAltcha
-Example of using Altcha with blazor server
+Example of using Altcha with blazor interactive server and self validating Altcha tokens.
